@@ -1,0 +1,88 @@
+name: CI Pipeline
+
+on:
+  pull_request:
+    branches: [ main, master ]
+    types: [ opened, synchronize, reopened ]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [15.5.1]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: /home/ubuntu/assessment-cc-devops-kubernetes-sr-01/codebase/rdicidr-0.1.0/package-lock.json
+        
+    - name: Install dependencies
+      working-directory: /home/ubuntu/assessment-cc-devops-kubernetes-sr-01/codebase/rdicidr-0.1.0
+      run: npm ci
+      
+    - name: Run ESLint
+      working-directory: /home/ubuntu/assessment-cc-devops-kubernetes-sr-01/codebase/rdicidr-0.1.0
+      run: npm run lint
+      
+    - name: Run Prettier check
+      working-directory: /home/ubuntu/assessment-cc-devops-kubernetes-sr-01/codebase/rdicidr-0.1.0
+      run: npm run prettier
+      
+    - name: Run tests
+      working-directory: /home/ubuntu/assessment-cc-devops-kubernetes-sr-01/codebase/rdicidr-0.1.0
+      run: CI=true npm run test -- --watchAll=false --coverage --passWithNoTests
+      
+    - name: Build application
+      working-directory: /home/ubuntu/assessment-cc-devops-kubernetes-sr-01/codebase/rdicidr-0.1.0
+      run: npm run build
+      
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-files
+        path: /home/ubuntu/assessment-cc-devops-kubernetes-sr-01/codebase/rdicidr-0.1.0/build
+        retention-days: 7
+
+  cd:
+    needs: ci
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: build-files
+        path: /home/ubuntu/assessment-cc-devops-kubernetes-sr-01/codebase/rdicidr-0.1.0/build
+        
+    - name: Deploy to EC2
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.EC2_PEM_KEY }}
+        SSH_HOST: ${{ secrets.EC2_INSTANCE_IP }}
+        SSH_USER: ${{ secrets.EC2_INSTANCE }}
+      run: |
+        echo "Creating SSH key file..."
+        mkdir -p ~/.ssh
+        echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        
+        echo "Adding host to known hosts..."
+        ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+        
+        echo "Connecting and deploying to EC2..."
+        ssh -i ~/.ssh/id_rsa "$SSH_USER"@"$SSH_HOST" '
+          # Commands to run on the EC2 instance
+          # This example moves the build files to a deployment directory
+          sudo rm -rf /var/www/your-app-path/*
+          sudo cp -r /home/ubuntu/assessment-cc-devops-kubernetes-sr-01/codebase/rdicidr-0.1.0/build/* /var/www/your-app-path/
+          
+          # Example: Restart a web server (like Nginx)
+          sudo systemctl restart nginx
+        '
