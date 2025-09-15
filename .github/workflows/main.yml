@@ -1,10 +1,10 @@
 name: CI pipeline
 
 on:
-    pull_request:
-      branches: [ main]
-    push:
-      branches: [ main]
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
 
 jobs:
   ci:
@@ -23,30 +23,30 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
-        cache-dependency-path: codebase/rdicidr-0.1.0/package-lock.json
+        cache-dependency-path: /home/ubuntu/assessment-cc-devops-kubernetes-sr-01/codebase/rdicidr-0.1.0/package-lock.json
         
     - name: Install dependencies
-      working-directory: codebase/rdicidr-0.1.0
+      working-directory: /home/ubuntu/assessment-cc-devops-kubernetes-sr-01/codebase/rdicidr-0.1.0
       run: npm install --ignore-engines
       
     - name: Run linter (ESLint)
-      working-directory: codebase/rdicidr-0.1.0
+      working-directory: /home/ubuntu/assessment-cc-devops-kubernetes-sr-01/codebase/rdicidr-0.1.0
       run: npm run lint
       
     - name: Run formatter (Prettier)
-      working-directory: codebase/rdicidr-0.1.0
+      working-directory: /home/ubuntu/assessment-cc-devops-kubernetes-sr-01/codebase/rdicidr-0.1.0
       run: npm run prettier
       
     - name: Run tests (Jest)
-      working-directory: codebase/rdicidr-0.1.0
+      working-directory: /home/ubuntu/assessment-cc-devops-kubernetes-sr-01/codebase/rdicidr-0.1.0
       run: CI=true npm run test -- --watchAll=false --coverage
       
     - name: Build application
-      working-directory: codebase/rdicidr-0.1.0
+      working-directory: /home/ubuntu/assessment-cc-devops-kubernetes-sr-01/codebase/rdicidr-0.1.0
       run: npm run build
       
     - name: Build Docker image
-      working-directory: codebase/rdicidr-0.1.0
+      working-directory: /home/ubuntu/assessment-cc-devops-kubernetes-sr-01/codebase/rdicidr-0.1.0
       run: docker build -t rdicidr:${{ github.sha }} .
         
     - name: Login to DockerHub
@@ -56,7 +56,7 @@ jobs:
         password: ${{ secrets.DOCKERHUB_PASSWORD }}
         
     - name: Push Docker image to DockerHub
-      working-directory: codebase/rdicidr-0.1.0
+      working-directory: /home/ubuntu/assessment-cc-devops-kubernetes-sr-01/codebase/rdicidr-0.1.0
       run: |
         docker tag rdicidr:${{ github.sha }} ${{ secrets.DOCKERHUB_USERNAME }}/rdicidr:${{ github.sha }}
         docker tag rdicidr:${{ github.sha }} ${{ secrets.DOCKERHUB_USERNAME }}/rdicidr:latest
