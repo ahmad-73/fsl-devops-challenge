@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: CI Pipeline
 
 on:
   push:
@@ -9,11 +9,9 @@ on:
       - main
 
 env:
-  DOCKER_IMAGE_NAME: fsl-challenge-app
   REACT_APP_DIR: codebase/rdicidr-0.1.0
 
 jobs:
-  # CI Job for React Application
   ci:
     runs-on: ubuntu-latest
     steps:
@@ -46,87 +44,3 @@ jobs:
         with:
           name: build-artifact
           path: ${{ env.REACT_APP_DIR }}/build
-
-  # Docker Build and Push Job
-  docker-build-push:
-    needs: ci
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Set up Docker BuildX
-        uses: docker/setup-buildx-action@v1
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build and push Docker image
-        run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:latest ${{ env.REACT_APP_DIR }}
-          docker push ${{ secrets.DOCKER_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:latest
-
-      - name: Upload Docker image (optional, for other jobs to use)
-        uses: actions/upload-artifact@v2
-        with:
-          name: docker-image
-          path: /tmp/docker-image.tar
-
-  # CD Job for Kubernetes
-  deploy-kubernetes:
-    needs: docker-build-push
-    runs-on: ubuntu-latest
-    environment: production-kubernetes
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Set up Kubeconfig
-        run: |
-          echo "${{ secrets.KUBE_CONFIG_BASE64 }}" | base64 -d > ~/.kube/config
-          chmod 600 ~/.kube/config
-
-      - name: Run Kubernetes deployment script
-        run: ./k8/deploy.sh
-        working-directory: fsl-devops-challenge
-
-  # CD Job for Terraform
-  deploy-terraform:
-    needs: docker-build-push
-    runs-on: ubuntu-latest
-    environment: production-terraform
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v1
-        with:
-          terraform_version: 1.0.0 # Specify a suitable version
-
-      - name: Run Terraform deployment script
-        run: ./terraform/deploy.sh
-        working-directory: fsl-devops-challenge
-
-  # CD Job for AWS ECS
-  deploy-aws-ecs:
-    needs: docker-build-push
-    runs-on: ubuntu-latest
-    environment: production-aws
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1 # Configure your AWS region
-
-      - name: Run AWS deployment script
-        run: ./aws/deploy-aws.sh
-        working-directory: fsl-devops-challenge
